@@ -239,7 +239,7 @@ QVariant InputDocument::loadResource(int type, const QUrl &name) {
 	} else {
 		--tag.length;
 		if (!stripped.isEmpty()) {
-			text.tags.push_back({ text.text.size() - 1, 1, stripped });
+			text.tags.push_back({ int(text.text.size()) - 1, 1, stripped });
 		}
 	}
 	return text;
@@ -1994,14 +1994,13 @@ void InputField::paintQuotes(QPaintEvent *e) {
 
 		const auto blockPosition = block.position();
 		const auto format = block.blockFormat();
-		const auto type = format.lineHeightType();
 		const auto id = format.property(kQuoteFormatId).toString();
 		const auto blockquote = (id == kTagBlockquote);
 		const auto collapsed = (id == kTagBlockquoteCollapsed);
 		const auto pre = !collapsed && IsTagPre(id);
 
 		spoilersAdjust(blockPosition, blockPosition + block.length());
-		if (const auto spoilers = textSpoiler || emojiSpoiler) {
+		if (textSpoiler || emojiSpoiler) {
 			ensureShift();
 			ensureBlockRect();
 			const auto fullShift = blockRect->topLeft() + *shift;
@@ -2086,9 +2085,7 @@ void InputField::paintQuotes(QPaintEvent *e) {
 				*st
 			).translated(*shift);
 			if (target.intersects(clip)) {
-				if (!p) {
-					p.emplace(_inner->viewport());
-				}
+				ensurePainter();
 				const auto cache = pre ? _preCache() : _blockquoteCache();
 				const auto collapsible = !pre
 					&& !collapsed
@@ -2644,7 +2641,6 @@ int InputField::lookupActionQuoteId(QPoint point) const {
 
 	while (block.isValid()) {
 		const auto format = block.blockFormat();
-		const auto type = format.lineHeightType();
 		const auto id = format.property(kQuoteFormatId).toString();
 		const auto collapsed = (id == kTagBlockquoteCollapsed);
 		const auto pre = !collapsed && IsTagPre(id);
@@ -4553,7 +4549,7 @@ auto InputField::addMarkdownTag(TextRange range, const QString &tag)
 		}
 	}
 	if (filled < current.text.size()) {
-		tags.push_back({ filled, current.text.size() - filled, tag });
+		tags.push_back({ filled, int(current.text.size()) - filled, tag });
 	}
 	current.tags = TextUtilities::SimplifyTags(std::move(tags));
 	const auto result = insertWithTags(range, std::move(current));
@@ -4600,8 +4596,6 @@ auto InputField::insertWithTags(TextRange range, TextWithTags text)
 		&& IsNewline(leftEdge.text.back());
 	const auto extendRight = !rightEdge.empty()
 		&& IsNewline(rightEdge.text.front());
-	const auto growLeft = !goodLeft && !extendLeft;
-	const auto growRight = !goodRight && !extendRight;
 	if (!goodLeft) {
 		text.text.insert(0, kHardLine);
 		for (auto &tag : text.tags) {
