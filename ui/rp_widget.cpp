@@ -122,6 +122,11 @@ rpl::producer<bool> RpWidgetWrap::shownValue() const {
 		| rpl::distinct_until_changed();
 }
 
+rpl::producer<not_null<QScreen*>> RpWidgetWrap::screenValue() const {
+	auto &stream = eventStreams().screen;
+	return stream.events_starting_with(rpWidget()->screen());
+}
+
 rpl::producer<bool> RpWidgetWrap::windowActiveValue() const {
 	auto &stream = eventStreams().windowActive;
 	return stream.events_starting_with(rpWidget()->isActiveWindow());
@@ -139,7 +144,8 @@ rpl::producer<> RpWidgetWrap::macWindowDeactivateEvents() const {
 #ifdef Q_OS_MAC
 	return windowActiveValue()
 		| rpl::skip(1)
-		| rpl::filter(!rpl::mappers::_1);
+		| rpl::filter(!rpl::mappers::_1)
+		| rpl::to_empty;
 #else // Q_OS_MAC
 	return rpl::never<rpl::empty_value>();
 #endif // Q_OS_MAC
@@ -199,6 +205,18 @@ bool RpWidgetWrap::handleEvent(QEvent *event) {
 				that = rpWidget();
 			}
 			streams->geometry.fire_copy(rpWidget()->geometry());
+			if (!that) {
+				return true;
+			}
+		}
+		break;
+
+	case QEvent::ScreenChangeInternal:
+		if (streams->screen.has_consumers()) {
+			if (!allAreObserved) {
+				that = rpWidget();
+			}
+			streams->screen.fire_copy(rpWidget()->screen());
 			if (!that) {
 				return true;
 			}
